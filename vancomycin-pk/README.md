@@ -25,4 +25,4 @@ python -m unittest discover -s tests -v
 
 All 240 courses are processed. Current code matches the separate reference for course completeness, renal-adjusted clearance, central volume, observed 24–48 h exposure, and QC totals. **The 48–72 h projections are not yet reference-equivalent** (1,466 values outside the strict 0.6 mg·h/L comparison tolerance), and 128 rankings differ. The software is a research prototype, not a verified dosing tool.
 
-**No clinical use.** This model is simplified, uses synthetic data, and must not guide actual medication decisions.
+**No clinical use.** This model is simplified, and must not guide actual medication decisions.
