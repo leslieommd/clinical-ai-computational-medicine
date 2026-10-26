@@ -1,0 +1,138 @@
+{
+  "version": "2.0",
+  "model": "two_compartment_iv_infusion_with_stepwise_renal_multiplier",
+  "time_reference": "All timestamps UTC ISO8601, Z suffix; elapsed hours relative to courses.csv anchor_utc",
+  "record_resolution": {
+    "pump_events": "event_id is unique. revises_id points to a preceding event_id in the same infusion. Discard any row referenced by revises_id, including intermediate revisions; retain terminal rows only. Sort retained rows by effective_utc, then recorded_utc and event_id. SET sets infusion rate_mg_h (positive); STOP sets rate to zero. An infusion starts at rate zero and rate stays constant until next retained event. Aggregate rates across infusion_id for each course. recorded_utc determines neither medication administration time nor dose.",
+    "drug_levels": "Group by (course_id,specimen_id), retain maximum integer revision. Accept the retained row only when status is FINAL, concentration_mg_l > 0, and collection_utc is strictly after anchor_utc and at most 48 hours after. Ignore result_utc for clinical sampling time. Excluded count = all raw drug_levels rows not used in fitting, including superseded revisions. n_levels counts accepted specimens.",
+    "renal_labs": "Sort by collection_utc. For any time t, use the most recent creatinine_mg_dl measured at or before t; hold its value until the next measurement, including after the last value. All courses have a renal measurement at anchor."
+  },
+  "pharmacokinetics": {
+    "concentration_model": "Central amount A1 and peripheral amount A2: dA1/dt = R(t) - (CL(t)+Q)*A1/Vc + Q*A2/Vp; dA2/dt = Q*A1/Vc - Q*A2/Vp; observed central concentration C=A1/Vc. Initial amounts zero. CL(t)=CL0*(1.0/Scr(t))^0.65.",
+    "C_units": "mg/L",
+    "R_units": "mg/hour",
+    "CL0_units": "L/hour",
+    "V_units": "L (central volume Vc)",
+    "Scr_units": "mg/dL",
+    "creatinine_reference_mg_dl": 1.0,
+    "renal_power": 0.65,
+    "integration": "Exact two-compartment linear state-space solution on piecewise-constant rate and creatinine segments. Both compartment amounts remain continuous at boundaries.",
+    "optimization": "For accepted levels, minimize sum squared central-concentration residuals divided by 0.7^2 plus squared log-ratio penalties: log(CL0/CL_prior)/0.6, log(Vc/Vc_prior)/0.5, log(Vp/Vp_prior)/0.35 and log(Q/Q_prior)/0.45. Use the global minimum over parameter bounds. Ties resolved by smallest lexicographic parameter tuple.",
+    "cl_prior_l_h": "3.8 * (weight_kg/75)^0.75",
+    "v_prior_l": "0.35 * weight_kg",
+    "vp_prior_l": "0.40 * weight_kg",
+    "q_prior_l_h": "4.2 * (weight_kg/75)^0.75",
+    "cl_bounds_l_h": [
+      1.0,
+      11.0
+    ],
+    "v_bounds_l": "[0.20*weight_kg,0.65*weight_kg]",
+    "vp_bounds_l": "[0.20*weight_kg,0.90*weight_kg]",
+    "q_bounds_l_h": [
+      1.2,
+      10.5
+    ],
+    "insufficient_levels": "If fewer than 3 accepted specimens, output status=insufficient_levels, n_levels as accepted count, blank cl_l_h/v_l/auc24_mg_h_l, and no regimen_scores rows.",
+    "otherwise_status": "estimated"
+  },
+  "exposure_window": {
+    "start_h": 24,
+    "end_h": 48,
+    "auc_units": "mg*h/L"
+  },
+  "regimen_projection": {
+    "start_h": 48,
+    "end_h": 72,
+    "history": "Use modeled actual concentration immediately before 48h, replace any future pump administration with the candidate option; retain future Scr measurements and hold last Scr thereafter.",
+    "dosing": "For each option, infuse dose_mg uniformly across infusion_h at t=48+ k*interval_h for all k whose starts precede 72h; cut contribution at t=72."
+  },
+  "regimen_options": [
+    {
+      "option_id": "R1",
+      "dose_mg": 750,
+      "interval_h": 12,
+      "infusion_h": 1
+    },
+    {
+      "option_id": "R2",
+      "dose_mg": 1000,
+      "interval_h": 12,
+      "infusion_h": 1.5
+    },
+    {
+      "option_id": "R3",
+      "dose_mg": 1250,
+      "interval_h": 12,
+      "infusion_h": 1.5
+    },
+    {
+      "option_id": "R4",
+      "dose_mg": 1500,
+      "interval_h": 12,
+      "infusion_h": 2
+    },
+    {
+      "option_id": "R5",
+      "dose_mg": 1000,
+      "interval_h": 8,
+      "infusion_h": 1.5
+    },
+    {
+      "option_id": "R6",
+      "dose_mg": 1500,
+      "interval_h": 24,
+      "infusion_h": 2
+    },
+    {
+      "option_id": "R7",
+      "dose_mg": 2000,
+      "interval_h": 24,
+      "infusion_h": 2
+    }
+  ],
+  "ranking": {
+    "rule": "Rank options first by whether predicted 24h AUC lies within [400,600] inclusive (inside first); then ascending absolute difference from 500; then ascending total dose administered over 48-72h; then option_id alphabetical. Ranks are 1-based, unique. The preferred regimen has rank 1.",
+    "target_auc_range": [
+      400,
+      600
+    ],
+    "target_midpoint": 500
+  },
+  "output": {
+    "folder": "/workspace/output/",
+    "csv_encoding": "UTF-8",
+    "csv_headers": {
+      "exposure.csv": [
+        "course_id",
+        "cl_l_h",
+        "v_l",
+        "auc24_mg_h_l",
+        "n_levels",
+        "status"
+      ],
+      "regimen_scores.csv": [
+        "course_id",
+        "option_id",
+        "predicted_auc24_mg_h_l",
+        "rank"
+      ]
+    },
+    "json_keys": [
+      "courses_processed",
+      "records_replaced",
+      "levels_excluded"
+    ],
+    "float_format": "decimal, at least 6 digits after decimal for nonblank numeric values",
+    "sorting": "exposure by course_id; regimen scores by course_id then rank"
+  },
+  "tolerances": {
+    "cl_l_h_absolute": 0.035,
+    "v_l_absolute": 0.35,
+    "auc24_mg_h_l_absolute": 0.6,
+    "predicted_auc24_mg_h_l_absolute": 0.6,
+    "rank": "exact",
+    "status": "exact",
+    "qc_counts": "exact"
+  },
+  "eligibility": "All 240 courses in courses.csv are eligible."
+}
