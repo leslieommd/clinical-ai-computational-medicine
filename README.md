@@ -13,8 +13,8 @@ This portfolio does not represent a clinically certified system. **Do not use it
 
 ## Additional past work
 
-Comparative anticoagulant bleeding risk and sepsis treatment-timing analysis are described in the broader CV but not represented by executable code in this repository; no implementation is claimed here.
+Comparative anticoagulant bleeding risk and sepsis treatment-timing analysis are described elsewhere and not represented by executable code in this repository; no implementation is claimed here.
 
 ## Publication rights
 
-The synthetic examples were prepared in connection with paid technical evaluation work. Confirm the permission you received extends to each included source file, dataset, and generated result before publishing. Private grading scripts and confidential evaluator outputs are excluded.
+The synthetic examples were prepared in connection with technical evaluation work. Confidential evaluator outputs are excluded.
